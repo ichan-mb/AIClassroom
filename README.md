@@ -371,7 +371,7 @@ Optional config in `~/.openclaw/openclaw.json`:
 - **Text-to-Speech** — Multiple voice providers with customizable voices
 - **Speech Recognition** — Talk to your AI teacher using your microphone
 - **Web Search** — Agents search the web for up-to-date information during class
-- **i18n** — Interface supports Chinese, English, Japanese, and Russian
+- **i18n** — Interface supports Chinese, English, Japanese, Russian, Arabic, and Indonesian
 - **Dark Mode** — Easy on the eyes for late-night study sessions
 
 ---
@@ -528,4 +528,3 @@ If you find OpenMAIC useful in your research, please consider citing:
 ## 📄 License
 
 This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
-
