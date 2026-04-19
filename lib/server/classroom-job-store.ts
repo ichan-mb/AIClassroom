@@ -1,23 +1,20 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import prisma from '@/lib/prisma/client';
+import { createLogger } from '@/lib/logger';
 import type {
   ClassroomGenerationProgress,
   ClassroomGenerationStep,
   GenerateClassroomInput,
   GenerateClassroomResult,
 } from '@/lib/server/classroom-generation';
-import {
-  CLASSROOM_JOBS_DIR,
-  ensureClassroomJobsDir,
-  writeJsonFileAtomic,
-} from '@/lib/server/classroom-storage';
+
+const log = createLogger('ClassroomJobStore');
 
 export type ClassroomGenerationJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 export interface ClassroomGenerationJob {
   id: string;
   status: ClassroomGenerationJobStatus;
-  step: ClassroomGenerationStep | 'queued' | 'failed';
+  step: ClassroomGenerationStep | 'queued' | 'failed' | 'completed';
   progress: number;
   message: string;
   createdAt: string;
@@ -40,9 +37,8 @@ export interface ClassroomGenerationJob {
   error?: string;
 }
 
-function jobFilePath(jobId: string) {
-  return path.join(CLASSROOM_JOBS_DIR, `${jobId}.json`);
-}
+/** Max age (ms) before a "running" job without an active runner is considered stale. */
+const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJob['inputSummary'] {
   return {
@@ -54,42 +50,41 @@ function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJo
   };
 }
 
-/** Simple per-job mutex to serialize read-modify-write on the same job file. */
-const jobLocks = new Map<string, Promise<void>>();
+function mapDbToJob(dbJob: any): ClassroomGenerationJob {
+  const payload = dbJob.payload as any;
 
-async function withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = jobLocks.get(jobId) ?? Promise.resolve();
-  let resolve: () => void;
-  const next = new Promise<void>((r) => {
-    resolve = r;
-  });
-  jobLocks.set(jobId, next);
-  try {
-    await prev;
-    return await fn();
-  } finally {
-    resolve!();
-    if (jobLocks.get(jobId) === next) jobLocks.delete(jobId);
+  const job: ClassroomGenerationJob = {
+    id: dbJob.id,
+    status: dbJob.status as ClassroomGenerationJobStatus,
+    step: dbJob.step as any,
+    progress: dbJob.progress,
+    message: dbJob.message || '',
+    createdAt: dbJob.createdAt.toISOString(),
+    updatedAt: dbJob.updatedAt.toISOString(),
+    startedAt: dbJob.startedAt?.toISOString(),
+    completedAt: dbJob.completedAt?.toISOString(),
+    inputSummary: payload.inputSummary,
+    scenesGenerated: payload.scenesGenerated || 0,
+    totalScenes: payload.totalScenes,
+    result: payload.result,
+    error: payload.error,
+  };
+
+  // Check for staleness
+  if (job.status === 'running') {
+    const updatedAtTime = new Date(job.updatedAt).getTime();
+    if (Date.now() - updatedAtTime > STALE_JOB_TIMEOUT_MS) {
+      return {
+        ...job,
+        status: 'failed',
+        step: 'failed',
+        message: 'Job appears stale (no progress update for 30 minutes)',
+        error: 'Stale job: process may have restarted during generation',
+        completedAt: new Date().toISOString(),
+      };
+    }
   }
-}
 
-/** Max age (ms) before a "running" job without an active runner is considered stale. */
-const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-
-function markStaleIfNeeded(job: ClassroomGenerationJob): ClassroomGenerationJob {
-  if (job.status !== 'running') return job;
-  const updatedAt = new Date(job.updatedAt).getTime();
-  if (Date.now() - updatedAt > STALE_JOB_TIMEOUT_MS) {
-    return {
-      ...job,
-      status: 'failed',
-      step: 'failed',
-      message: 'Job appears stale (no progress update for 30 minutes)',
-      error: 'Stale job: process may have restarted during generation',
-      completedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
   return job;
 }
 
@@ -100,37 +95,41 @@ export function isValidClassroomJobId(jobId: string): boolean {
 export async function createClassroomGenerationJob(
   jobId: string,
   input: GenerateClassroomInput,
+  userId: string,
 ): Promise<ClassroomGenerationJob> {
-  const now = new Date().toISOString();
-  const job: ClassroomGenerationJob = {
-    id: jobId,
-    status: 'queued',
-    step: 'queued',
-    progress: 0,
-    message: 'Classroom generation job queued',
-    createdAt: now,
-    updatedAt: now,
-    inputSummary: buildInputSummary(input),
-    scenesGenerated: 0,
-  };
+  const inputSummary = buildInputSummary(input);
 
-  await ensureClassroomJobsDir();
-  await writeJsonFileAtomic(jobFilePath(jobId), job);
-  return job;
+  const dbJob = await prisma.generationJob.create({
+    data: {
+      id: jobId,
+      status: 'queued',
+      step: 'queued',
+      progress: 0,
+      message: 'Classroom generation job queued',
+      userId: userId,
+      payload: {
+        inputSummary,
+        scenesGenerated: 0,
+      },
+    },
+  });
+
+  return mapDbToJob(dbJob);
 }
 
 export async function readClassroomGenerationJob(
   jobId: string,
 ): Promise<ClassroomGenerationJob | null> {
   try {
-    const content = await fs.readFile(jobFilePath(jobId), 'utf-8');
-    const job = JSON.parse(content) as ClassroomGenerationJob;
-    return markStaleIfNeeded(job);
+    const dbJob = await prisma.generationJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!dbJob) return null;
+    return mapDbToJob(dbJob);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
+    log.error(`Failed to read job ${jobId}:`, error);
+    return null;
   }
 }
 
@@ -138,42 +137,48 @@ export async function updateClassroomGenerationJob(
   jobId: string,
   patch: Partial<ClassroomGenerationJob>,
 ): Promise<ClassroomGenerationJob> {
-  return withJobLock(jobId, async () => {
-    const existing = await readClassroomGenerationJob(jobId);
-    if (!existing) {
-      throw new Error(`Classroom generation job not found: ${jobId}`);
-    }
-
-    const updated: ClassroomGenerationJob = {
-      ...existing,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeJsonFileAtomic(jobFilePath(jobId), updated);
-    return updated;
+  const existingDbJob = await prisma.generationJob.findUnique({
+    where: { id: jobId },
   });
+
+  if (!existingDbJob) {
+    throw new Error(`Job not found: ${jobId}`);
+  }
+
+  const existingPayload = existingDbJob.payload as any;
+
+  // Update fields
+  const data: any = {};
+  if (patch.status) data.status = patch.status;
+  if (patch.step) data.step = patch.step;
+  if (patch.progress !== undefined) data.progress = patch.progress;
+  if (patch.message !== undefined) data.message = patch.message;
+  if (patch.startedAt) data.startedAt = new Date(patch.startedAt);
+  if (patch.completedAt) data.completedAt = new Date(patch.completedAt);
+
+  // Payload updates
+  const newPayload = { ...existingPayload };
+  if (patch.scenesGenerated !== undefined) newPayload.scenesGenerated = patch.scenesGenerated;
+  if (patch.totalScenes !== undefined) newPayload.totalScenes = patch.totalScenes;
+  if (patch.result !== undefined) newPayload.result = patch.result;
+  if (patch.error !== undefined) newPayload.error = patch.error;
+  data.payload = newPayload;
+
+  const updatedDbJob = await prisma.generationJob.update({
+    where: { id: jobId },
+    data,
+  });
+
+  return mapDbToJob(updatedDbJob);
 }
 
 export async function markClassroomGenerationJobRunning(
   jobId: string,
 ): Promise<ClassroomGenerationJob> {
-  return withJobLock(jobId, async () => {
-    const existing = await readClassroomGenerationJob(jobId);
-    if (!existing) {
-      throw new Error(`Classroom generation job not found: ${jobId}`);
-    }
-
-    const updated: ClassroomGenerationJob = {
-      ...existing,
-      status: 'running',
-      startedAt: existing.startedAt || new Date().toISOString(),
-      message: 'Classroom generation started',
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeJsonFileAtomic(jobFilePath(jobId), updated);
-    return updated;
+  return updateClassroomGenerationJob(jobId, {
+    status: 'running',
+    message: 'Classroom generation started',
+    startedAt: new Date().toISOString(),
   });
 }
 

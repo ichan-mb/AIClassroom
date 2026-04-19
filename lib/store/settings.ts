@@ -642,6 +642,69 @@ export const useSettingsStore = create<SettingsState>()(
 
         autoConfigApplied: false,
 
+        fetchGlobalSettings: async () => {
+          try {
+            const res = await fetch('/api/settings');
+            const { data, success } = await res.json();
+            if (success && data?.settings) {
+              // Merge server settings into local state
+              set((state) => ({
+                ...state,
+                ...data.settings,
+              }));
+            }
+          } catch (err) {
+            log.error('Failed to sync settings from server:', err);
+          }
+        },
+
+        saveGlobalSettings: async () => {
+          const state = get();
+          // Only sync provider and model related configurations to server (Global)
+          // Preferences like theme or sidebar state remain local
+          const payload = {
+            providerId: state.providerId,
+            modelId: state.modelId,
+            providersConfig: state.providersConfig,
+            ttsProviderId: state.ttsProviderId,
+            ttsVoice: state.ttsVoice,
+            ttsEnabled: state.ttsEnabled,
+            ttsSpeed: state.ttsSpeed,
+            ttsProvidersConfig: state.ttsProvidersConfig,
+            asrProviderId: state.asrProviderId,
+            asrLanguage: state.asrLanguage,
+            asrEnabled: state.asrEnabled,
+            asrProvidersConfig: state.asrProvidersConfig,
+            pdfProviderId: state.pdfProviderId,
+            pdfProvidersConfig: state.pdfProvidersConfig,
+            imageProviderId: state.imageProviderId,
+            imageModelId: state.imageModelId,
+            imageGenerationEnabled: state.imageGenerationEnabled,
+            imageProvidersConfig: state.imageProvidersConfig,
+            videoProviderId: state.videoProviderId,
+            videoModelId: state.videoModelId,
+            videoGenerationEnabled: state.videoGenerationEnabled,
+            videoProvidersConfig: state.videoProvidersConfig,
+            webSearchProviderId: state.webSearchProviderId,
+            webSearchProvidersConfig: state.webSearchProvidersConfig,
+            agentMode: state.agentMode,
+            autoAgentCount: state.autoAgentCount,
+            maxTurns: state.maxTurns,
+          };
+
+          try {
+            const res = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: payload }),
+            });
+            if (!res.ok) throw new Error('Failed to save settings');
+          } catch (err) {
+            log.error('Failed to save settings to server:', err);
+            throw err;
+          }
+        },
+
         // Web Search settings (use defaults)
         ...defaultWebSearchConfig,
 

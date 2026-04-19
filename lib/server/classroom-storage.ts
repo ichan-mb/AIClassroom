@@ -1,84 +1,141 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import prisma from '@/lib/prisma/client';
 import type { NextRequest } from 'next/server';
 import type { Scene, Stage } from '@/lib/types/stage';
+import { createLogger } from '@/lib/logger';
 
-export const CLASSROOMS_DIR = path.join(process.cwd(), 'data', 'classrooms');
-export const CLASSROOM_JOBS_DIR = path.join(process.cwd(), 'data', 'classroom-jobs');
+const log = createLogger('ClassroomStorage');
 
-async function ensureDir(dir: string) {
-  await fs.mkdir(dir, { recursive: true });
-}
-
-export async function ensureClassroomsDir() {
-  await ensureDir(CLASSROOMS_DIR);
-}
-
-export async function ensureClassroomJobsDir() {
-  await ensureDir(CLASSROOM_JOBS_DIR);
-}
-
-export async function writeJsonFileAtomic(filePath: string, data: unknown) {
-  const dir = path.dirname(filePath);
-  await ensureDir(dir);
-
-  const tempFilePath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  const content = JSON.stringify(data, null, 2);
-  await fs.writeFile(tempFilePath, content, 'utf-8');
-  await fs.rename(tempFilePath, filePath);
-}
-
+/**
+ * Build the public origin for the request (protocol + host)
+ */
 export function buildRequestOrigin(req: NextRequest): string {
   return req.headers.get('x-forwarded-host')
     ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('x-forwarded-host')}`
     : req.nextUrl.origin;
 }
 
+/**
+ * Data structure for a classroom stored in the database
+ */
 export interface PersistedClassroomData {
   id: string;
-  stage: Stage;
-  scenes: Scene[];
+  name: string;
+  userId: string;
+  data: {
+    stage: Stage;
+    scenes: Scene[];
+  };
+  isShared: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
+/**
+ * Validate classroom ID format
+ */
 export function isValidClassroomId(id: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(id);
 }
 
-export async function readClassroom(id: string): Promise<PersistedClassroomData | null> {
-  const filePath = path.join(CLASSROOMS_DIR, `${id}.json`);
+/**
+ * Retrieve a classroom from the database by ID
+ */
+export async function readClassroom(id: string): Promise<any | null> {
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as PersistedClassroomData;
+    const classroom = await prisma.classroom.findUnique({
+      where: { id },
+    });
+
+    if (!classroom) return null;
+
+    // Transform DB record back to the format expected by the frontend
+    return {
+      id: classroom.id,
+      name: classroom.name,
+      userId: classroom.userId,
+      stage: (classroom.data as any).stage,
+      scenes: (classroom.data as any).scenes,
+      isShared: classroom.isShared,
+      createdAt: classroom.createdAt.toISOString(),
+      updatedAt: classroom.updatedAt.toISOString(),
+    };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
+    log.error(`Failed to read classroom [id=${id}] from DB:`, error);
     throw error;
   }
 }
 
+/**
+ * Save a classroom to the database
+ */
 export async function persistClassroom(
   data: {
     id: string;
     stage: Stage;
     scenes: Scene[];
+    userId?: string;
+    isShared?: boolean;
   },
   baseUrl: string,
-): Promise<PersistedClassroomData & { url: string }> {
-  const classroomData: PersistedClassroomData = {
-    id: data.id,
-    stage: data.stage,
-    scenes: data.scenes,
-    createdAt: new Date().toISOString(),
-  };
+): Promise<{ id: string; url: string }> {
+  try {
+    // Fallback to a default user ID if auth is not yet implemented
+    const userId = data.userId || 'default-user';
+    const classroomName = data.stage.name || 'Untitled Classroom';
 
-  await ensureClassroomsDir();
-  const filePath = path.join(CLASSROOMS_DIR, `${data.id}.json`);
-  await writeJsonFileAtomic(filePath, classroomData);
+    const persisted = await prisma.classroom.upsert({
+      where: { id: data.id },
+      update: {
+        name: classroomName,
+        data: {
+          stage: data.stage,
+          scenes: data.scenes,
+        },
+        isShared: data.isShared ?? false,
+      },
+      create: {
+        id: data.id,
+        name: classroomName,
+        userId: userId,
+        data: {
+          stage: data.stage,
+          scenes: data.scenes,
+        },
+        isShared: data.isShared ?? false,
+      },
+    });
 
-  return {
-    ...classroomData,
-    url: `${baseUrl}/classroom/${data.id}`,
-  };
+    return {
+      id: persisted.id,
+      url: `${baseUrl}/classroom/${persisted.id}`,
+    };
+  } catch (error) {
+    log.error(`Failed to persist classroom [id=${data.id}] to DB:`, error);
+    throw error;
+  }
+}
+
+/**
+ * List classrooms for a specific user or shared ones
+ */
+export async function listClassrooms(userId: string, includeShared = true) {
+  try {
+    return await prisma.classroom.findMany({
+      where: {
+        OR: [{ userId: userId }, ...(includeShared ? [{ isShared: true }] : [])],
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        userId: true,
+        isShared: true,
+        updatedAt: true,
+        createdAt: true,
+      },
+    });
+  } catch (error) {
+    log.error(`Failed to list classrooms for user [userId=${userId}]:`, error);
+    throw error;
+  }
 }

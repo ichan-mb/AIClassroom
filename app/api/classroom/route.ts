@@ -6,8 +6,10 @@ import {
   isValidClassroomId,
   persistClassroom,
   readClassroom,
+  listClassrooms,
 } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
+import { auth } from '@/lib/auth';
 
 const log = createLogger('Classroom API');
 
@@ -31,7 +33,17 @@ export async function POST(request: NextRequest) {
     const id = stage.id || randomUUID();
     const baseUrl = buildRequestOrigin(request);
 
-    const persisted = await persistClassroom({ id, stage: { ...stage, id }, scenes }, baseUrl);
+    const session = await auth();
+    const userId = (session?.user as any)?.id;
+
+    if (!userId) {
+      return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, 'Unauthorized');
+    }
+
+    const persisted = await persistClassroom(
+      { id, stage: { ...stage, id }, scenes, userId },
+      baseUrl,
+    );
 
     return apiSuccess({ id: persisted.id, url: persisted.url }, 201);
   } catch (error) {
@@ -50,26 +62,36 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    const userId = (session?.user as any)?.id;
+
+    if (!userId) {
+      return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, 'Unauthorized');
+    }
+
     const id = request.nextUrl.searchParams.get('id');
 
-    if (!id) {
-      return apiError(
-        API_ERROR_CODES.MISSING_REQUIRED_FIELD,
-        400,
-        'Missing required parameter: id',
-      );
+    if (id) {
+      if (!isValidClassroomId(id)) {
+        return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, 'Invalid classroom id');
+      }
+
+      const classroom = await readClassroom(id);
+      if (!classroom) {
+        return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, 'Classroom not found');
+      }
+
+      // Check access: only owner or shared classrooms can be accessed
+      if (classroom.userId !== userId && !classroom.isShared) {
+        return apiError(API_ERROR_CODES.INVALID_REQUEST, 403, 'Access denied');
+      }
+
+      return apiSuccess({ classroom });
     }
 
-    if (!isValidClassroomId(id)) {
-      return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, 'Invalid classroom id');
-    }
-
-    const classroom = await readClassroom(id);
-    if (!classroom) {
-      return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, 'Classroom not found');
-    }
-
-    return apiSuccess({ classroom });
+    // If no ID provided, list all classrooms for the user
+    const classrooms = await listClassrooms(userId);
+    return apiSuccess({ classrooms });
   } catch (error) {
     log.error(
       `Classroom retrieval failed [id=${request.nextUrl.searchParams.get('id') ?? 'unknown'}]:`,

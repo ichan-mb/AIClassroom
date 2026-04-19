@@ -6,12 +6,21 @@ import {
 } from '@/lib/server/classroom-job-store';
 import { buildRequestOrigin } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma/client';
 
 const log = createLogger('ClassroomJob API');
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
+  const session = await auth();
+  const userId = (session?.user as any)?.id;
+
+  if (!userId) {
+    return apiError('UNAUTHORIZED', 401, 'Unauthorized');
+  }
+
   let resolvedJobId: string | undefined;
   try {
     const { jobId } = await context.params;
@@ -23,6 +32,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
 
     const job = await readClassroomGenerationJob(jobId);
     if (!job) {
+      return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
+    }
+
+    // Verify ownership
+    const dbJob = await prisma.generationJob.findUnique({
+      where: { id: jobId },
+      select: { userId: true },
+    });
+
+    if (!dbJob || dbJob.userId !== userId) {
       return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
     }
 

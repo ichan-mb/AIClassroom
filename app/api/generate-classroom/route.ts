@@ -6,12 +6,20 @@ import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
 import { buildRequestOrigin } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
+import { auth } from '@/lib/auth';
 
 const log = createLogger('GenerateClassroom API');
 
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  const session = await auth();
+  const userId = (session?.user as any)?.id;
+
+  if (!userId) {
+    return apiError('UNAUTHORIZED', 401, 'Unauthorized');
+  }
+
   let requirementSnippet: string | undefined;
   try {
     const rawBody = (await req.json()) as Partial<GenerateClassroomInput>;
@@ -38,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = buildRequestOrigin(req);
     const jobId = nanoid(10);
-    const job = await createClassroomGenerationJob(jobId, body);
+    const job = await createClassroomGenerationJob(jobId, body, userId);
     const pollUrl = `${baseUrl}/api/generate-classroom/${jobId}`;
 
     after(() => runClassroomGenerationJob(jobId, body, baseUrl));

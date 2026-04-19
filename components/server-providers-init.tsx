@@ -9,10 +9,12 @@ import { useSettingsStore } from '@/lib/store/settings';
  */
 export function ServerProvidersInit() {
   const fetchServerProviders = useSettingsStore((state) => state.fetchServerProviders);
+  const fetchGlobalSettings = useSettingsStore((state) => state.fetchGlobalSettings);
 
   useEffect(() => {
+    fetchGlobalSettings();
     fetchServerProviders();
-  }, [fetchServerProviders]);
+  }, [fetchServerProviders, fetchGlobalSettings]);
 
   return null;
 }
