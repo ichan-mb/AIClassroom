@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     const job = await createClassroomGenerationJob(jobId, body, userId);
     const pollUrl = `${baseUrl}/api/generate-classroom/${jobId}`;
 
-    after(() => runClassroomGenerationJob(jobId, body, baseUrl));
+    after(() => runClassroomGenerationJob(jobId, body, baseUrl, userId));
 
     return apiSuccess(
       {

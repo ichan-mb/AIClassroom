@@ -283,6 +283,9 @@ export interface SettingsState {
 
   // Server provider actions
   fetchServerProviders: () => Promise<void>;
+  fetchGlobalSettings: () => Promise<void>;
+  saveGlobalSettings: () => Promise<void>;
+  updatedAt?: string;
 }
 
 // Initialize default providers config
@@ -614,6 +617,7 @@ export const useSettingsStore = create<SettingsState>()(
         ttsVolume: 1,
         autoPlayLecture: false,
         playbackSpeed: 1,
+        updatedAt: undefined,
 
         // Layout preferences
         sidebarCollapsed: true,
@@ -645,12 +649,13 @@ export const useSettingsStore = create<SettingsState>()(
         fetchGlobalSettings: async () => {
           try {
             const res = await fetch('/api/settings');
-            const { data, success } = await res.json();
-            if (success && data?.settings) {
+            const json = await res.json();
+            if (json.success && json.settings) {
               // Merge server settings into local state
               set((state) => ({
                 ...state,
-                ...data.settings,
+                ...json.settings,
+                updatedAt: json.updatedAt,
               }));
             }
           } catch (err) {
@@ -661,7 +666,6 @@ export const useSettingsStore = create<SettingsState>()(
         saveGlobalSettings: async () => {
           const state = get();
           // Only sync provider and model related configurations to server (Global)
-          // Preferences like theme or sidebar state remain local
           const payload = {
             providerId: state.providerId,
             modelId: state.modelId,
@@ -699,6 +703,10 @@ export const useSettingsStore = create<SettingsState>()(
               body: JSON.stringify({ settings: payload }),
             });
             if (!res.ok) throw new Error('Failed to save settings');
+            const json = await res.json();
+            if (json.success) {
+              set({ updatedAt: json.updatedAt });
+            }
           } catch (err) {
             log.error('Failed to save settings to server:', err);
             throw err;

@@ -182,8 +182,9 @@ export function Header({ currentSceneTitle }: HeaderProps) {
               {/* Settings Button */}
               <div className="relative">
                 <button
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={() => router.push('/admin')}
                   className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
+                  title="System Settings"
                 >
                   <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
                 </button>

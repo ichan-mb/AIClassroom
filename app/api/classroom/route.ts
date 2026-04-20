@@ -10,6 +10,7 @@ import {
 } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma/client';
 
 const log = createLogger('Classroom API');
 
@@ -101,6 +102,62 @@ export async function GET(request: NextRequest) {
       API_ERROR_CODES.INTERNAL_ERROR,
       500,
       'Failed to retrieve classroom',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+/**
+ * DELETE /api/classroom?id=...
+ * Deletes a classroom owned by the user.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    const userId = (session?.user as any)?.id;
+
+    if (!userId) {
+      return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, 'Unauthorized');
+    }
+
+    const id = request.nextUrl.searchParams.get('id');
+
+    if (!id) {
+      return apiError(
+        API_ERROR_CODES.MISSING_REQUIRED_FIELD,
+        400,
+        'Missing required parameter: id',
+      );
+    }
+
+    // Verify ownership before deletion
+    const classroom = await prisma.classroom.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+
+    if (!classroom) {
+      return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, 'Classroom not found');
+    }
+
+    if (classroom.userId !== userId) {
+      return apiError(API_ERROR_CODES.INVALID_REQUEST, 403, 'Access denied');
+    }
+
+    await prisma.classroom.delete({
+      where: { id },
+    });
+
+    return apiSuccess({ success: true });
+  } catch (error) {
+    log.error(
+      `Classroom deletion failed [id=${request.nextUrl.searchParams.get('id') ?? 'unknown'}]:`,
+      error,
+    );
+    return apiError(
+      API_ERROR_CODES.INTERNAL_ERROR,
+      500,
+      'Failed to delete classroom',
       error instanceof Error ? error.message : String(error),
     );
   }

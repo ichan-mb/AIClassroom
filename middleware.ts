@@ -45,11 +45,12 @@ export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
 
-  // 1. Whitelist: Static assets and auth-related routes
+  // 1. Whitelist: Static assets, auth-related routes, and classroom media
   if (
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/api/auth/') ||
     pathname.startsWith('/api/access-code/') ||
+    pathname.startsWith('/api/classroom-media/') ||
     pathname === '/api/health' ||
     pathname.includes('.') // Static files
   ) {

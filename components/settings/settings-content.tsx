@@ -264,7 +264,7 @@ export function SettingsContent({
   };
 
   const handleAddModel = (pid: ProviderId) => {
-    const modelIndex = providersConfig[pid]?.models?.length || 0;
+    const modelIndex = null;
     const model = {
       id: '',
       name: '',
@@ -285,17 +285,21 @@ export function SettingsContent({
     setProviderConfig(pid, { models: newModels });
   };
 
-  const handleAutoSaveModel = (pid: ProviderId, modelIndex: number, model: any) => {
+  const handleAutoSaveModel = (pid: ProviderId, modelIndex: number | null, model: any) => {
     // Used for quick capability toggles without closing dialog
     const currentModels = providersConfig[pid]?.models || [];
-    let newModels = [...currentModels];
+    const newModels = [...currentModels];
     let newModelIndex = modelIndex;
 
-    // Handle adding new model if it doesn't exist yet
-    const existingIndex = currentModels.findIndex((m) => m.id === model.id);
-    if (existingIndex === -1 && modelIndex >= currentModels.length) {
-      newModels.push(model);
-      newModelIndex = newModels.length - 1;
+    if (modelIndex === null) {
+      const existingIndex = currentModels.findIndex((m) => m.id === model.id);
+      if (existingIndex >= 0) {
+        newModels[existingIndex] = model;
+        newModelIndex = existingIndex;
+      } else {
+        newModels.push(model);
+        newModelIndex = newModels.length - 1;
+      }
     } else {
       newModels[modelIndex] = model;
     }
@@ -304,10 +308,10 @@ export function SettingsContent({
     setEditingModel({ providerId: pid, modelIndex: newModelIndex, model });
   };
 
-  const handleSaveModel = (pid: ProviderId, modelIndex: number, model: any) => {
+  const handleSaveModel = (pid: ProviderId, modelIndex: number | null, model: any) => {
     const currentModels = providersConfig[pid]?.models || [];
-    let newModels = [...currentModels];
-    if (modelIndex < currentModels.length) {
+    const newModels = [...currentModels];
+    if (modelIndex !== null && modelIndex < currentModels.length) {
       newModels[modelIndex] = model;
     } else {
       newModels.push(model);
@@ -757,7 +761,7 @@ export function SettingsContent({
               onSave={handleProviderConfigSave}
               onEditModel={(index) => handleEditModel(selectedProviderId, index)}
               onDeleteModel={(index) => handleDeleteModel(selectedProviderId, index)}
-              onAddModel={handleAddModel}
+              onAddModel={() => handleAddModel(selectedProviderId)}
               onResetToDefault={() => handleResetProvider(selectedProviderId)}
               isBuiltIn={providersConfig[selectedProviderId]?.isBuiltIn ?? true}
             />
@@ -803,20 +807,30 @@ export function SettingsContent({
       </div>
 
       {/* Dialogs extracted from parent for autonomy */}
-      <ModelEditDialog
-        open={showModelDialog}
-        onOpenChange={setShowModelDialog}
-        editingModel={editingModel}
-        setEditingModel={setEditingModel}
-        onSave={handleSaveModel}
-        onAutoSave={handleAutoSaveModel}
-        providerId={selectedProviderId}
-        apiKey={providersConfig[selectedProviderId]?.apiKey || ''}
-        baseUrl={providersConfig[selectedProviderId]?.baseUrl}
-        providerType={providersConfig[selectedProviderId]?.type}
-        requiresApiKey={providersConfig[selectedProviderId]?.requiresApiKey}
-        isServerConfigured={providersConfig[selectedProviderId]?.isServerConfigured}
-      />
+      {showModelDialog && editingModel && (
+        <ModelEditDialog
+          open={showModelDialog}
+          onOpenChange={setShowModelDialog}
+          editingModel={editingModel}
+          setEditingModel={setEditingModel}
+          onSave={() =>
+            handleSaveModel(editingModel.providerId, editingModel.modelIndex, editingModel.model)
+          }
+          onAutoSave={() =>
+            handleAutoSaveModel(
+              editingModel.providerId,
+              editingModel.modelIndex,
+              editingModel.model,
+            )
+          }
+          providerId={selectedProviderId}
+          apiKey={providersConfig[selectedProviderId]?.apiKey || ''}
+          baseUrl={providersConfig[selectedProviderId]?.baseUrl}
+          providerType={providersConfig[selectedProviderId]?.type}
+          requiresApiKey={providersConfig[selectedProviderId]?.requiresApiKey}
+          isServerConfigured={providersConfig[selectedProviderId]?.isServerConfigured}
+        />
+      )}
 
       <AddProviderDialog
         open={showAddProviderDialog}

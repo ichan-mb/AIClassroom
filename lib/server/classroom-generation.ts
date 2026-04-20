@@ -34,6 +34,7 @@ const log = createLogger('Classroom');
 
 export interface GenerateClassroomInput {
   requirement: string;
+  userId?: string;
   pdfContent?: { text: string; images: string[] };
   enableWebSearch?: boolean;
   enableImageGeneration?: boolean;
@@ -448,6 +449,7 @@ export async function generateClassroom(
       id: stageId,
       stage,
       scenes,
+      userId: input.userId,
     },
     options.baseUrl,
   );
@@ -468,6 +470,6 @@ export async function generateClassroom(
     stage,
     scenes,
     scenesCount: scenes.length,
-    createdAt: persisted.createdAt,
+    createdAt: new Date(stage.createdAt).toISOString(),
   };
 }

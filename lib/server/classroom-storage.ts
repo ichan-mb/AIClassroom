@@ -1,9 +1,12 @@
 import prisma from '@/lib/prisma/client';
+import path from 'path';
 import type { NextRequest } from 'next/server';
 import type { Scene, Stage } from '@/lib/types/stage';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ClassroomStorage');
+
+export const CLASSROOMS_DIR = path.join(process.cwd(), 'data', 'classrooms');
 
 /**
  * Build the public origin for the request (protocol + host)

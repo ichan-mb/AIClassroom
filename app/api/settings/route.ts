@@ -21,7 +21,10 @@ export async function GET() {
     const settings = await prisma.systemSettings.findUnique({
       where: { id: GLOBAL_SETTINGS_ID },
     });
-    return apiSuccess({ settings: settings?.payload || null });
+    return apiSuccess({
+      settings: settings?.payload || null,
+      updatedAt: settings?.updatedAt || null,
+    });
   } catch (error) {
     log.error('Failed to fetch system settings:', error);
     return apiError(API_ERROR_CODES.INTERNAL_ERROR, 500, 'Failed to fetch settings');

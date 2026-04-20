@@ -33,6 +33,7 @@ export class AudioPlayer {
       if (audioUrl) {
         this.stop();
         this.audio = new Audio();
+        this.audio.crossOrigin = 'anonymous';
         this.audio.src = audioUrl;
         if (this.muted) this.audio.volume = 0;
         else this.audio.volume = this.volume;
@@ -41,7 +42,21 @@ export class AudioPlayer {
         this.audio.addEventListener('ended', () => {
           this.onEndedCallback?.();
         });
-        await this.audio.play();
+        this.audio.addEventListener('error', () => {
+          const error = this.audio?.error;
+          log.error(
+            `Audio element error (URL) code=${error?.code}: ${error?.message || 'Unknown error'}`,
+          );
+        });
+
+        try {
+          await this.audio.play();
+        } catch (playError) {
+          // This often happens in Safari if user interaction hasn't occurred or if 401/404 received
+          log.warn('Audio play() (URL) failed or interrupted:', playError);
+          return false;
+        }
+
         this.audio.playbackRate = this.playbackRate;
         return true;
       }
@@ -76,8 +91,22 @@ export class AudioPlayer {
         this.onEndedCallback?.();
       });
 
+      this.audio.addEventListener('error', () => {
+        const error = this.audio?.error;
+        log.error(
+          `Audio element error (Blob) code=${error?.code}: ${error?.message || 'Unknown error'}`,
+        );
+        URL.revokeObjectURL(blobUrl);
+      });
+
       // Play
-      await this.audio.play();
+      try {
+        await this.audio.play();
+      } catch (playError) {
+        log.warn('Audio play() (Blob) failed or interrupted:', playError);
+        URL.revokeObjectURL(blobUrl);
+        return false;
+      }
       // Re-apply after play() — some browsers reset during load
       this.audio.playbackRate = this.playbackRate;
       return true;

@@ -154,15 +154,45 @@ function HomePage() {
 
   const loadClassrooms = async () => {
     try {
-      const list = await listStages();
-      setClassrooms(list);
-      // Load first slide thumbnails
-      if (list.length > 0) {
-        const slides = await getFirstSlideByStages(list.map((c) => c.id));
+      // 1. Fetch classrooms from server database
+      const res = await fetch('/api/classroom');
+      const data = await res.json();
+
+      let list: StageListItem[] = [];
+      if (data.success && data.classrooms) {
+        list = data.classrooms.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          description: '',
+          sceneCount: 0, // Server list doesn't include count for speed
+          createdAt: new Date(c.createdAt).getTime(),
+          updatedAt: new Date(c.updatedAt).getTime(),
+        }));
+      }
+
+      // 2. Merge with local IndexedDB (for imported classrooms)
+      const localStages = await listStages();
+      const serverIds = new Set(list.map((s) => s.id));
+      const combined = [...list];
+
+      for (const local of localStages) {
+        if (!serverIds.has(local.id)) {
+          combined.push(local);
+        }
+      }
+
+      setClassrooms(combined);
+
+      // 3. Load first slide thumbnails from IndexedDB (if available)
+      if (combined.length > 0) {
+        const slides = await getFirstSlideByStages(combined.map((c) => c.id));
         setThumbnails(slides);
       }
     } catch (err) {
       log.error('Failed to load classrooms:', err);
+      // Fallback to local only on network error
+      const local = await listStages();
+      setClassrooms(local);
     }
   };
 
@@ -174,8 +204,6 @@ function HomePage() {
 
   useEffect(() => {
     // Clear stale media store to prevent cross-course thumbnail contamination.
-    // The store may hold tasks from a previously visited classroom whose elementIds
-    // (gen_img_1, etc.) collide with other courses' placeholders.
     useMediaGenerationStore.getState().revokeObjectUrls();
     useMediaGenerationStore.setState({ tasks: {} });
 
@@ -191,6 +219,9 @@ function HomePage() {
   const confirmDelete = async (id: string) => {
     setPendingDeleteId(null);
     try {
+      // Try to delete from server database if it's there
+      await fetch(`/api/classroom?id=${id}`, { method: 'DELETE' }).catch(() => {});
+      // Always clean up local IndexedDB
       await deleteStageData(id);
       await loadClassrooms();
     } catch (err) {
@@ -201,6 +232,8 @@ function HomePage() {
 
   const handleRename = async (id: string, newName: string) => {
     try {
+      // Update local IndexedDB and state
+      // Note: Full database rename sync would require a dedicated PATCH API endpoint
       await renameStage(id, newName);
       setClassrooms((prev) => prev.map((c) => (c.id === id ? { ...c, name: newName } : c)));
     } catch (err) {

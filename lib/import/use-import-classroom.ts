@@ -110,12 +110,16 @@ export function useImportClassroom(onSuccess?: () => void) {
         for (const [zipPath, newId] of Object.entries(audioRefToNewId)) {
           const zipEntry = zip.file(zipPath);
           if (!zipEntry) continue;
-          const blob = await zipEntry.async('blob');
           const meta = manifest.mediaIndex[zipPath];
+          const format = meta.format || 'mp3';
+          const mimeType = format === 'mp3' ? 'audio/mpeg' : `audio/${format}`;
+          const arrayBuffer = await zipEntry.async('arraybuffer');
+          const blob = new Blob([arrayBuffer], { type: mimeType });
+
           const record: AudioFileRecord = {
             id: newId,
             blob,
-            format: meta.format || 'mp3',
+            format,
             duration: meta.duration,
             voice: meta.voice,
             createdAt: now,
@@ -127,15 +131,17 @@ export function useImportClassroom(onSuccess?: () => void) {
         for (const [zipPath, newId] of Object.entries(mediaRefToNewId)) {
           const zipEntry = zip.file(zipPath);
           if (!zipEntry) continue;
-          const blob = await zipEntry.async('blob');
           const meta = manifest.mediaIndex[zipPath];
+          const mimeType = meta.mimeType || (zipPath.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg');
+          const arrayBuffer = await zipEntry.async('arraybuffer');
+          const blob = new Blob([arrayBuffer], { type: mimeType });
 
           const record: MediaFileRecord = {
             id: newId,
             stageId: newStageId,
-            type: meta.mimeType?.startsWith('video/') ? 'video' : 'image',
+            type: mimeType.startsWith('video/') ? 'video' : 'image',
             blob,
-            mimeType: meta.mimeType || 'image/jpeg',
+            mimeType,
             size: meta.size || blob.size,
             prompt: meta.prompt || '',
             params: '',
@@ -146,7 +152,8 @@ export function useImportClassroom(onSuccess?: () => void) {
           const posterPath = zipPath.replace(/\.\w+$/, '.poster.jpg');
           const posterEntry = zip.file(posterPath);
           if (posterEntry) {
-            record.poster = await posterEntry.async('blob');
+            const pBuffer = await posterEntry.async('arraybuffer');
+            record.poster = new Blob([pBuffer], { type: 'image/jpeg' });
           }
 
           await db.mediaFiles.put(record);
@@ -157,7 +164,7 @@ export function useImportClassroom(onSuccess?: () => void) {
         toast.loading(t('import.writingCourse'), { id: toastId });
 
         // Write stage
-        await db.stages.put({
+        const stageData: any = {
           id: newStageId,
           name: manifest.stage.name || 'Imported Classroom',
           description: manifest.stage.description,
@@ -166,7 +173,7 @@ export function useImportClassroom(onSuccess?: () => void) {
           createdAt: manifest.stage.createdAt || now,
           updatedAt: now,
           agentIds: newAgentIds.length > 0 ? newAgentIds : undefined,
-        });
+        };
 
         // Write agents
         if (manifest.agents?.length) {
@@ -182,7 +189,20 @@ export function useImportClassroom(onSuccess?: () => void) {
             createdAt: now,
           }));
           await db.generatedAgents.bulkPut(agentRecords);
+
+          // Embed full configs for server database sync
+          stageData.generatedAgentConfigs = manifest.agents.map((a, i) => ({
+            id: newAgentIds[i],
+            name: a.name,
+            role: a.role,
+            persona: a.persona,
+            avatar: a.avatar,
+            color: a.color,
+            priority: a.priority,
+          }));
         }
+
+        await db.stages.put(stageData);
 
         // Write scenes with rewritten references
         const sceneRecords = manifest.scenes.map((mScene: ManifestScene, index: number) => {
@@ -218,6 +238,24 @@ export function useImportClassroom(onSuccess?: () => void) {
           };
         });
         await db.scenes.bulkPut(sceneRecords);
+
+        // 5.5 Sync to Server Database
+        try {
+          await fetch('/api/classroom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              stage: stageData,
+              scenes: sceneRecords,
+            }),
+          });
+          log.info(`Synced imported classroom ${newStageId} to server`);
+        } catch (syncErr) {
+          log.warn(
+            'Failed to sync imported classroom to server, it will remain local-only:',
+            syncErr,
+          );
+        }
 
         // 6. Done
         setPhase('done');
