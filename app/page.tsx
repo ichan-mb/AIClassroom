@@ -22,6 +22,8 @@ import {
   Upload,
   LogOut,
   LayoutDashboard,
+  Sparkles,
+  Atom,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -58,17 +60,20 @@ const log = createLogger('Home');
 
 const WEB_SEARCH_STORAGE_KEY = 'webSearchEnabled';
 const RECENT_OPEN_STORAGE_KEY = 'recentClassroomsOpen';
+const INTERACTIVE_MODE_STORAGE_KEY = 'interactiveModeEnabled';
 
 interface FormState {
   pdfFile: File | null;
   requirement: string;
   webSearch: boolean;
+  interactiveMode: boolean;
 }
 
 const initialFormState: FormState = {
   pdfFile: null,
   requirement: '',
   webSearch: false,
+  interactiveMode: false,
 };
 
 function HomePage() {
@@ -85,6 +90,7 @@ function HomePage() {
       })
       .catch(() => {});
   }, []);
+
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -112,8 +118,10 @@ function HomePage() {
     }
     try {
       const savedWebSearch = localStorage.getItem(WEB_SEARCH_STORAGE_KEY);
+      const savedInteractiveMode = localStorage.getItem(INTERACTIVE_MODE_STORAGE_KEY);
       const updates: Partial<FormState> = {};
-      if (savedWebSearch === 'true') updates.webSearch = true;
+      if (savedWebSearch !== null) updates.webSearch = savedWebSearch === 'true';
+      if (savedInteractiveMode !== null) updates.interactiveMode = savedInteractiveMode === 'true';
       if (Object.keys(updates).length > 0) {
         setForm((prev) => ({ ...prev, ...updates }));
       }
@@ -233,7 +241,6 @@ function HomePage() {
   const handleRename = async (id: string, newName: string) => {
     try {
       // Update local IndexedDB and state
-      // Note: Full database rename sync would require a dedicated PATCH API endpoint
       await renameStage(id, newName);
       setClassrooms((prev) => prev.map((c) => (c.id === id ? { ...c, name: newName } : c)));
     } catch (err) {
@@ -246,6 +253,8 @@ function HomePage() {
     setForm((prev) => ({ ...prev, [field]: value }));
     try {
       if (field === 'webSearch') localStorage.setItem(WEB_SEARCH_STORAGE_KEY, String(value));
+      if (field === 'interactiveMode')
+        localStorage.setItem(INTERACTIVE_MODE_STORAGE_KEY, String(value));
       if (field === 'requirement') updateRequirementCache(value as string);
     } catch {
       /* ignore */
@@ -308,6 +317,7 @@ function HomePage() {
         userNickname: userProfile.nickname || undefined,
         userBio: userProfile.bio || undefined,
         webSearch: form.webSearch || undefined,
+        interactiveMode: form.interactiveMode || undefined,
       };
 
       let pdfStorageKey: string | undefined;
@@ -382,7 +392,7 @@ function HomePage() {
         onChange={handleFileChange}
         className="hidden"
       />
-      {/* ═══ Top-right pill (unchanged) ═══ */}
+      {/* ═══ Top-right pill ═══ */}
       <div
         ref={toolbarRef}
         className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
@@ -547,7 +557,36 @@ function HomePage() {
             {/* ── Greeting + Profile + Agents ── */}
             <div className="relative z-20 flex items-start justify-between">
               <GreetingBar />
-              <div className="pr-3 pt-3.5 shrink-0">
+              <div className="pr-3 pt-3.5 shrink-0 flex items-center gap-1.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
+                      className={cn(
+                        'p-2 rounded-lg transition-all',
+                        form.interactiveMode
+                          ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shadow-[0_0_12px_rgba(168,85,247,0.15)]'
+                          : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted border border-transparent',
+                      )}
+                    >
+                      <Sparkles
+                        className={cn(
+                          'size-4 transition-transform duration-500',
+                          form.interactiveMode && 'rotate-[15deg] scale-110',
+                        )}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="center" className="text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <Atom className="size-3 text-purple-500" />
+                      <span>
+                        {form.interactiveMode ? 'AI Interaction ON' : 'AI Interaction OFF'}
+                      </span>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+                <div className="w-px h-4 bg-border/40 mx-0.5" />
                 <AgentBar />
               </div>
             </div>
@@ -822,194 +861,135 @@ function GreetingBar() {
         ref={avatarInputRef}
         type="file"
         accept="image/*"
-        className="hidden"
         onChange={handleAvatarUpload}
+        className="hidden"
       />
-
-      {/* ── Collapsed pill (always in flow) ── */}
-      {!open && (
-        <div
-          className="flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 active:scale-[0.97]"
-          onClick={() => setOpen(true)}
+      <div className="flex items-center gap-2 group/bar">
+        {/* Avatar */}
+        <button
+          onClick={() => {
+            if (!open) setOpen(true);
+            else setAvatarPickerOpen(!avatarPickerOpen);
+          }}
+          className={cn(
+            'relative size-8 rounded-full border border-border/40 overflow-hidden bg-muted/30 transition-transform active:scale-95',
+            open && 'ring-2 ring-primary/20 ring-offset-2 ring-offset-background',
+          )}
         >
-          <div className="shrink-0 relative">
-            <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-border/30 group-hover:ring-violet-400/60 dark:group-hover:ring-violet-400/40 transition-all duration-300">
-              <img src={avatar} alt="" className="size-full object-cover" />
-            </div>
-            <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
-              <Pencil className="size-[7px] text-muted-foreground/70" />
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="leading-none select-none flex items-center gap-1">
-                  <span className="text-[13px] font-semibold text-foreground/85 group-hover:text-foreground transition-colors">
-                    {t('home.greetingWithName', { name: displayName })}
-                  </span>
-                  <ChevronDown className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={4}>
-                {t('profile.editTooltip')}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      )}
+          <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/0 group-hover/bar:bg-black/5 transition-colors" />
+        </button>
 
-      {/* ── Expanded panel (absolute, floating) ── */}
+        {/* Greeting / Name Input */}
+        <div className="flex flex-col min-w-[120px]">
+          <div className="flex items-center gap-1.5">
+            {editingName ? (
+              <input
+                ref={nameInputRef}
+                type="text"
+                className="bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-[13px] font-semibold text-foreground py-0 w-full"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={commitName}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitName();
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  else startEditName();
+                }}
+                className="text-[13px] font-semibold text-foreground/80 hover:text-foreground transition-colors truncate max-w-[160px]"
+              >
+                {t('home.greetingWithName', { name: displayName })}
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setOpen(!open)}
+            className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors text-left truncate max-w-[160px]"
+          >
+            {bio || t('profile.chooseAvatar')}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded Profile Panel */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-            className="absolute left-4 top-3.5 z-50 w-64"
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="absolute top-full left-4 mt-2 w-72 bg-white dark:bg-slate-900 rounded-xl border border-border/60 shadow-2xl z-50 p-4"
           >
-            <div className="rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06] shadow-[0_1px_8px_-2px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_8px_-2px_rgba(0,0,0,0.3)] px-2.5 py-2">
-              {/* ── Row: avatar + name ── */}
-              <div
-                className="flex items-center gap-2.5 cursor-pointer transition-all duration-200"
-                onClick={() => {
-                  setOpen(false);
-                  setEditingName(false);
-                  setAvatarPickerOpen(false);
-                }}
-              >
-                {/* Avatar */}
-                <div
-                  className="shrink-0 relative cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setAvatarPickerOpen(!avatarPickerOpen);
-                  }}
-                >
-                  <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-violet-300/70 dark:ring-violet-500/40 transition-all duration-300">
-                    <img src={avatar} alt="" className="size-full object-cover" />
-                  </div>
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-border/60 flex items-center justify-center"
+            <div className="space-y-4">
+              {/* Avatar Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                    {t('profile.chooseAvatar')}
+                  </span>
+                  <button
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
                   >
-                    <ChevronDown
-                      className={cn(
-                        'size-2 text-muted-foreground/70 transition-transform duration-200',
-                        avatarPickerOpen && 'rotate-180',
-                      )}
-                    />
-                  </motion.div>
+                    <ImagePlus className="size-3" />
+                    {t('profile.uploadAvatar')}
+                  </button>
                 </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  {editingName ? (
-                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        ref={nameInputRef}
-                        value={nameDraft}
-                        onChange={(e) => setNameDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitName();
-                          if (e.key === 'Escape') {
-                            setEditingName(false);
-                          }
-                        }}
-                        onBlur={commitName}
-                        maxLength={20}
-                        placeholder={t('profile.defaultNickname')}
-                        className="flex-1 min-w-0 h-6 bg-transparent border-b border-border/80 text-[13px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
-                      />
-                      <button
-                        onClick={commitName}
-                        className="shrink-0 size-5 rounded flex items-center justify-center text-violet-500 hover:bg-violet-100 dark:hover:bg-violet-900/30"
-                      >
-                        <Check className="size-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditName();
-                      }}
-                      className="group/name inline-flex items-center gap-1 cursor-pointer"
+                <div className="grid grid-cols-5 gap-2">
+                  {AVATAR_OPTIONS.map((src) => (
+                    <button
+                      key={src}
+                      onClick={() => setAvatar(src)}
+                      className={cn(
+                        'aspect-square rounded-lg border-2 transition-all hover:scale-105 active:scale-95 overflow-hidden',
+                        avatar === src
+                          ? 'border-primary'
+                          : 'border-transparent hover:border-border',
+                      )}
                     >
-                      <span className="text-[13px] font-semibold text-foreground/85 group-hover/name:text-foreground transition-colors">
-                        {displayName}
-                      </span>
-                      <Pencil className="size-2.5 text-muted-foreground/30 opacity-0 group-hover/name:opacity-100 transition-opacity" />
-                    </span>
+                      <img src={src} className="w-full h-full object-cover" alt="Option" />
+                    </button>
+                  ))}
+                  {isCustomAvatar(avatar) && (
+                    <div className="aspect-square rounded-lg border-2 border-primary overflow-hidden relative group">
+                      <img src={avatar} className="w-full h-full object-cover" alt="Custom" />
+                      <div className="absolute inset-0 bg-primary/10" />
+                    </div>
                   )}
                 </div>
-
-                {/* Collapse arrow */}
-                <motion.div
-                  initial={{ opacity: 0, y: -2 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="shrink-0 size-6 rounded-full flex items-center justify-center hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
-                >
-                  <ChevronUp className="size-3.5 text-muted-foreground/50" />
-                </motion.div>
               </div>
 
-              {/* ── Expandable content ── */}
-              <div className="pt-2" onClick={(e) => e.stopPropagation()}>
-                {/* Avatar picker */}
-                <AnimatePresence>
-                  {avatarPickerOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.15, ease: 'easeInOut' }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-1 pb-2.5 flex items-center gap-1.5 flex-wrap">
-                        {AVATAR_OPTIONS.map((url) => (
-                          <button
-                            key={url}
-                            onClick={() => setAvatar(url)}
-                            className={cn(
-                              'size-7 rounded-full overflow-hidden bg-gray-50 dark:bg-gray-800 cursor-pointer transition-all duration-150',
-                              'hover:scale-110 active:scale-95',
-                              avatar === url
-                                ? 'ring-2 ring-violet-400 dark:ring-violet-500 ring-offset-0'
-                                : 'hover:ring-1 hover:ring-muted-foreground/30',
-                            )}
-                          >
-                            <img src={url} alt="" className="size-full" />
-                          </button>
-                        ))}
-                        <label
-                          className={cn(
-                            'size-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border border-dashed',
-                            'hover:scale-110 active:scale-95',
-                            isCustomAvatar(avatar)
-                              ? 'ring-2 ring-violet-400 dark:ring-violet-500 ring-offset-0 border-violet-300 dark:border-violet-600 bg-violet-50 dark:bg-violet-900/30'
-                              : 'border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50',
-                          )}
-                          onClick={() => avatarInputRef.current?.click()}
-                          title={t('profile.uploadAvatar')}
-                        >
-                          <ImagePlus className="size-3" />
-                        </label>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Bio */}
-                <UITextarea
+              {/* Bio Textarea */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  {t('profile.title')}
+                </span>
+                <textarea
+                  className="w-full min-h-[80px] bg-muted/30 border-0 rounded-lg p-2.5 text-[12px] leading-relaxed placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-primary/20 transition-all resize-none"
+                  placeholder={t('profile.bioPlaceholder')}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder={t('profile.bioPlaceholder')}
-                  maxLength={200}
-                  rows={2}
-                  className="resize-none border-border/40 bg-transparent min-h-[72px] !text-[13px] !leading-relaxed placeholder:!text-[11px] placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-border/60"
                 />
+                <p className="text-[10px] text-muted-foreground/40 leading-tight">
+                  {t('profile.avatarHint')}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-1 flex justify-end">
+                <button
+                  onClick={() => setOpen(false)}
+                  className="text-[11px] font-bold text-primary px-3 py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                >
+                  {t('common.confirm')}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -1019,7 +999,8 @@ function GreetingBar() {
   );
 }
 
-// ─── Classroom Card — clean, minimal style ──────────────────────
+// ─── Classroom Card ────
+
 function ClassroomCard({
   classroom,
   slide,
@@ -1051,25 +1032,24 @@ function ClassroomCard({
   useEffect(() => {
     const el = thumbRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setThumbWidth(Math.round(entry.contentRect.width));
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setThumbWidth(entry.contentRect.width);
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (editing) nameInputRef.current?.focus();
-  }, [editing]);
-
   const startRename = (e: React.MouseEvent) => {
     e.stopPropagation();
     setNameDraft(classroom.name);
     setEditing(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
   };
 
-  const commitRename = () => {
-    if (!editing) return;
+  const commitRename = (e?: React.FormEvent) => {
+    e?.preventDefault();
     const trimmed = nameDraft.trim();
     if (trimmed && trimmed !== classroom.name) {
       onRename(classroom.id, trimmed);
@@ -1078,83 +1058,54 @@ function ClassroomCard({
   };
 
   return (
-    <div className="group cursor-pointer" onClick={confirmingDelete ? undefined : onClick}>
-      {/* Thumbnail — large radius, no border, subtle bg */}
+    <div
+      onClick={onClick}
+      className="group relative flex flex-col cursor-pointer transition-all duration-300 active:scale-[0.98]"
+    >
+      {/* Thumbnail Shell */}
       <div
         ref={thumbRef}
-        className="relative w-full aspect-[16/9] rounded-2xl bg-slate-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]"
+        className="relative aspect-[16/10] w-full rounded-2xl border border-border/40 bg-white dark:bg-slate-900 shadow-sm overflow-hidden transition-all duration-500 group-hover:shadow-xl group-hover:shadow-black/[0.04] group-hover:border-primary/20 group-hover:-translate-y-1"
       >
-        {slide && thumbWidth > 0 ? (
-          <ThumbnailSlide
-            slide={slide}
-            size={thumbWidth}
-            viewportSize={slide.viewportSize ?? 1000}
-            viewportRatio={slide.viewportRatio ?? 0.5625}
-          />
-        ) : !slide ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="size-12 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 dark:from-violet-900/30 dark:to-blue-900/30 flex items-center justify-center">
-              <span className="text-xl opacity-50">📄</span>
-            </div>
+        {slide ? (
+          <div
+            className="absolute inset-0 origin-top-left"
+            style={{
+              transform: `scale(${thumbWidth / 1000})`,
+              width: 1000,
+              height: 625,
+            }}
+          >
+            <ThumbnailSlide slide={slide} />
           </div>
-        ) : null}
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/5">
+            <Atom className="size-8 text-muted-foreground/10 animate-[spin_8s_linear_infinite]" />
+          </div>
+        )}
 
-        {/* Delete — top-right, only on hover */}
-        <AnimatePresence>
-          {!confirmingDelete && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-2 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-destructive/80 text-white hover:text-white backdrop-blur-sm rounded-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(classroom.id, e);
-                }}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-11 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-black/50 text-white hover:text-white backdrop-blur-sm rounded-full"
-                onClick={startRename}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Inline delete confirmation overlay */}
+        {/* Delete Confirmation Overlay */}
         <AnimatePresence>
           {confirmingDelete && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-[6px]"
+              className="absolute inset-0 z-30 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-[13px] font-medium text-white/90">
-                {t('classroom.deleteConfirmTitle')}?
-              </span>
+              <Trash2 className="size-6 text-destructive mb-2" />
+              <p className="text-[12px] font-bold mb-3">{t('classroom.deleteConfirmTitle')}?</p>
               <div className="flex gap-2">
                 <button
-                  className="px-3.5 py-1 rounded-lg text-[12px] font-medium bg-white/15 text-white/80 hover:bg-white/25 backdrop-blur-sm transition-colors"
                   onClick={onCancelDelete}
+                  className="px-3 py-1 rounded-lg text-[11px] font-bold hover:bg-muted transition-colors"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
-                  className="px-3.5 py-1 rounded-lg text-[12px] font-medium bg-red-500/90 text-white hover:bg-red-500 transition-colors"
                   onClick={onConfirmDelete}
+                  className="px-3 py-1 rounded-lg text-[11px] font-bold bg-destructive text-white hover:bg-destructive/90 transition-colors shadow-lg shadow-destructive/20"
                 >
                   {t('classroom.delete')}
                 </button>
@@ -1162,59 +1113,62 @@ function ClassroomCard({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Hover Actions */}
+        <div className="absolute top-3 right-3 z-20 flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+          <button
+            onClick={startRename}
+            className="p-2 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg backdrop-blur-md text-muted-foreground hover:text-primary hover:scale-110 transition-all"
+            title={t('classroom.rename')}
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button
+            onClick={(e) => onDelete(classroom.id, e)}
+            className="p-2 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg backdrop-blur-md text-muted-foreground hover:text-destructive hover:scale-110 transition-all"
+            title={t('classroom.delete')}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+
+        {/* Progress Scrim */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
-      {/* Info — outside the thumbnail */}
-      <div className="mt-2.5 px-1 flex items-center gap-2">
-        <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
-          {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
-        </span>
+      {/* Info */}
+      <div className="mt-4 px-1">
         {editing ? (
-          <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+          <form onSubmit={commitRename} className="flex items-center gap-2">
             <input
               ref={nameInputRef}
+              className="bg-transparent border-b-2 border-primary focus:outline-none text-sm font-bold text-foreground w-full py-0.5"
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitRename();
-                if (e.key === 'Escape') setEditing(false);
-              }}
-              onBlur={commitRename}
-              maxLength={100}
-              placeholder={t('classroom.renamePlaceholder')}
-              className="w-full bg-transparent border-b border-violet-400/60 text-[15px] font-medium text-foreground/90 outline-none placeholder:text-muted-foreground/40"
+              onBlur={() => commitRename()}
+              onClick={(e) => e.stopPropagation()}
             />
-          </div>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p
-                className="font-medium text-[15px] truncate text-foreground/90 min-w-0 cursor-text"
-                onDoubleClick={startRename}
-              >
-                {classroom.name}
-              </p>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              sideOffset={4}
-              className="!max-w-[min(90vw,32rem)] break-words whitespace-normal"
+            <button
+              type="submit"
+              className="p-1 rounded-md bg-primary text-white"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="break-all">{classroom.name}</span>
-                <button
-                  className="shrink-0 p-0.5 rounded hover:bg-foreground/10 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(classroom.name);
-                    toast.success(t('classroom.nameCopied'));
-                  }}
-                >
-                  <Copy className="size-3 opacity-60" />
-                </button>
-              </div>
-            </TooltipContent>
-          </Tooltip>
+              <Check className="size-3" />
+            </button>
+          </form>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-sm font-bold text-foreground/90 group-hover:text-primary transition-colors truncate">
+              {classroom.name}
+            </h3>
+            <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+              <span>{formatDate(classroom.updatedAt)}</span>
+              <span className="size-1 rounded-full bg-border" />
+              <span>
+                {classroom.sceneCount || '?'} {t('classroom.slides')}
+              </span>
+            </div>
+          </div>
         )}
       </div>
     </div>
