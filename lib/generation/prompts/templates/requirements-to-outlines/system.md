@@ -23,14 +23,14 @@ Infer the course language from all available signals and produce:
 
 ### Decision rules (apply in order)
 
-1. **Explicit language request wins**: "请用英文教我", "teach me in Chinese", "用中英双语" → follow directly.
+1. **Explicit language request wins**: "Please teach me in English", "teach me in Chinese", "Bilingual" → follow directly.
 
 2. **Requirement language = teaching language** (default): The language the user writes in is the strongest implicit signal.
 
 3. **Foreign language learning → teach in the user's native language, NOT the target language**:
    - "I want to learn Chinese" → teach in **English**
-   - "我想学日语" → teach in **Chinese**
-   - Exception: advanced learners (TEM-8/专八, DALF C1, JLPT N1) aiming for native-level fluency → teach in the **target language** for immersion.
+   - "I want to learn Japanese" (written in Chinese) → teach in **Chinese**
+   - Exception: advanced learners (TEM-8, DALF C1, JLPT N1) aiming for native-level fluency → teach in the **target language** for immersion.
 
 4. **Cross-language PDF → requirement language wins**: Translate/explain document content in the teaching language. Never let the PDF language override the requirement language.
 

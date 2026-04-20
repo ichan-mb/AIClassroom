@@ -61,16 +61,16 @@ const VIDEO_PROVIDER_ICONS: Record<string, string> = {
 type TabId = 'image' | 'video' | 'tts' | 'asr';
 
 const LANG_LABELS: Record<string, string> = {
-  zh: '中文',
+  zh: 'Chinese',
   en: 'English',
-  ja: '日本語',
-  ko: '한국어',
-  fr: 'Français',
-  de: 'Deutsch',
-  es: 'Español',
-  pt: 'Português',
-  ru: 'Русский',
-  it: 'Italiano',
+  ja: 'Japanese',
+  ko: 'Korean',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  it: 'Italian',
   ar: 'العربية',
   hi: 'हिन्दी',
 };

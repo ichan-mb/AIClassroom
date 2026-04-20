@@ -46,8 +46,8 @@ scene.add(directionalLight);
 ```html
 <!-- Add these buttons to your controls -->
 <div class="zoom-controls">
-  <button id="zoom-in-btn" title="放大">+</button>
-  <button id="zoom-out-btn" title="缩小">−</button>
+  <button id="zoom-in-btn" title="Zoom In">+</button>
+  <button id="zoom-out-btn" title="Zoom Out">−</button>
 </div>
 ```
 
@@ -159,8 +159,8 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
   "interactions": [
     { "type": "orbit", "target": "camera" },
     { "type": "slider", "param": "speed", "min": 0, "max": 10, "default": 1 },
-    { "type": "button", "action": "zoomIn", "label": "放大" },
-    { "type": "button", "action": "zoomOut", "label": "缩小" }
+    { "type": "button", "action": "zoomIn", "label": "Zoom In" },
+    { "type": "button", "action": "zoomOut", "label": "Zoom Out" }
   ],
   "presets": [
     { "name": "View Earth", "state": { "cameraTarget": "earth" } }
@@ -570,7 +570,7 @@ switch (action) {
     const { elementId, highlight } = payload;  // First const
     // ...
     break;
-    
+
   case 'ANNOTATE_ELEMENT':
     const { elementId, text } = payload;  // ERROR! elementId already declared
     // ...
@@ -587,13 +587,13 @@ switch (action) {
     // ...
     break;
   }
-  
+
   case 'ANNOTATE_ELEMENT': {
     const { elementId, text } = payload;  // OK - different block scope
     // ...
     break;
   }
-  
+
   case 'SET_WIDGET_STATE': {
     const { cameraPosition, scale } = payload;
     // ...
@@ -609,7 +609,7 @@ switch (action) {
     const highlightData = payload;
     // Use highlightData.elementId
     break;
-    
+
   case 'ANNOTATE_ELEMENT':
     const annotateData = payload;
     // Use annotateData.elementId
@@ -624,7 +624,7 @@ Always wrap switch cases in braces:
 ```javascript
 window.addEventListener('message', (event) => {
   const { action, payload } = event.data;
-  
+
   switch (action) {
     case 'SET_WIDGET_STATE': {
       if (payload.cameraPosition) camera.position.set(...payload.cameraPosition);
@@ -633,7 +633,7 @@ window.addEventListener('message', (event) => {
       }
       break;
     }
-    
+
     case 'HIGHLIGHT_ELEMENT': {
       const { elementId, highlight } = payload;
       if (objects[elementId]) {
@@ -643,7 +643,7 @@ window.addEventListener('message', (event) => {
       }
       break;
     }
-    
+
     case 'ANNOTATE_ELEMENT': {
       const { elementId, text } = payload;
       // Create annotation tooltip

@@ -85,8 +85,7 @@ function AgentVoicePill({
       stopPreview();
       setPreviewingId(key);
 
-      const isEnglish = voiceLanguage?.startsWith('en') ?? false;
-      const previewText = isEnglish ? 'Welcome to AI Classroom' : '欢迎来到AI课堂';
+      const previewText = 'Welcome to AI Classroom';
 
       if (providerId === 'browser-native-tts') {
         const { promise, cancel } = playBrowserTTSPreview({ text: previewText, voice: voiceId });
@@ -316,8 +315,7 @@ function TeacherVoicePill({
       stopPreview();
       setPreviewingId(key);
 
-      const isEnglish = voiceLanguage?.startsWith('en') ?? false;
-      const previewText = isEnglish ? 'Welcome to AI Classroom' : '欢迎来到AI课堂';
+      const previewText = 'Welcome to AI Classroom';
 
       if (providerId === 'browser-native-tts') {
         const { promise, cancel } = playBrowserTTSPreview({ text: previewText, voice: voiceId });

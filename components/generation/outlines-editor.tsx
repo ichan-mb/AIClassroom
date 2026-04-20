@@ -82,14 +82,14 @@ export function OutlinesEditor({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-lg font-semibold">场景大纲</h2>
+          <h2 className="text-lg font-semibold">Scene Outlines</h2>
           <p className="text-sm text-muted-foreground">
-            共 {outlines.length} 个场景，可编辑、添加、删除或重排序
+            {outlines.length} scenes in total. Edit, add, remove or reorder.
           </p>
         </div>
         <Button variant="outline" onClick={addOutline} disabled={isLoading}>
           <Plus className="size-4 mr-1" />
-          添加场景
+          Add Scene
         </Button>
       </div>
 
@@ -126,7 +126,7 @@ export function OutlinesEditor({
                     <Input
                       value={outline.title}
                       onChange={(e) => updateOutline(index, { title: e.target.value })}
-                      placeholder="场景标题"
+                      placeholder="Scene Title"
                       className="flex-1"
                       disabled={isLoading}
                     />

@@ -156,14 +156,14 @@ For **shorter courses (<10 scenes)**:
 {
   "id": "scene_3",
   "type": "interactive",
-  "title": "精准着陆挑战",
-  "description": "控制飞船推力，安全着陆到目标区域",
-  "keyPoints": ["调节推力大小", "观察速度变化", "实现软着陆"],
+  "title": "Precision Landing Challenge",
+  "description": "Control spacecraft thrust to land safely in the target area",
+  "keyPoints": ["Adjust thrust magnitude", "Observe velocity changes", "Achieve soft landing"],
   "order": 3,
   "widgetType": "game",
   "widgetOutline": {
     "gameType": "action",
-    "challenge": "控制推力使飞船以低于5m/s的速度着陆",
+    "challenge": "Control thrust to land the spacecraft at less than 5m/s",
     "playerControls": ["thrust_slider"],
     "physicsConcept": "F=ma, thrust counteracts gravity"
   }
@@ -178,9 +178,9 @@ For **shorter courses (<10 scenes)**:
 {
   "id": "scene_3",
   "type": "interactive",
-  "title": "太阳系探索",
-  "description": "交互式3D太阳系模型，探索行星轨道和相对大小",
-  "keyPoints": ["行星轨道运动", "行星相对大小", "太阳系结构"],
+  "title": "Solar System Exploration",
+  "description": "Interactive 3D solar system model, explore planetary orbits and relative sizes",
+  "keyPoints": ["Planetary orbital motion", "Planetary relative sizes", "Solar system structure"],
   "order": 3,
   "widgetType": "visualization3d",
   "widgetOutline": {

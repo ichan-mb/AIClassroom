@@ -119,7 +119,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center text-xs text-muted-foreground">
-            <p>Admin access is required for system configuration.</p>
+            <p>Please fill in your credentials to sign in.</p>
           </div>
         </CardContent>
       </Card>
