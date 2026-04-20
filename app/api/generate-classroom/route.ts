@@ -1,6 +1,6 @@
 import { after, type NextRequest } from 'next/server';
 import { nanoid } from 'nanoid';
-import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { apiError, apiSuccess, API_ERROR_CODES } from '@/lib/server/api-response';
 import { type GenerateClassroomInput } from '@/lib/server/classroom-generation';
 import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const userId = (session?.user as any)?.id;
 
   if (!userId) {
-    return apiError('UNAUTHORIZED', 401, 'Unauthorized');
+    return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, 'Unauthorized');
   }
 
   let requirementSnippet: string | undefined;

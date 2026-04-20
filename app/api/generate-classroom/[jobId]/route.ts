@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server';
-import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { apiError, apiSuccess, API_ERROR_CODES } from '@/lib/server/api-response';
 import {
   isValidClassroomJobId,
   readClassroomGenerationJob,
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
   const userId = (session?.user as any)?.id;
 
   if (!userId) {
-    return apiError('UNAUTHORIZED', 401, 'Unauthorized');
+    return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, 'Unauthorized');
   }
 
   let resolvedJobId: string | undefined;

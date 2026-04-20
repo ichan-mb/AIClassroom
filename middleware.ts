@@ -84,7 +84,7 @@ export default auth(async (req) => {
     // If neither Auth.js nor Access Code is valid, redirect to login for pages, 401 for API
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
-        { success: false, errorCode: 'UNAUTHORIZED', error: 'Authentication required' },
+        { success: false, errorCode: 'INVALID_REQUEST', error: 'Authentication required' },
         { status: 401 },
       );
     }
