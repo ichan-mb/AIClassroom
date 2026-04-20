@@ -557,36 +557,7 @@ function HomePage() {
             {/* ── Greeting + Profile + Agents ── */}
             <div className="relative z-20 flex items-start justify-between">
               <GreetingBar />
-              <div className="pr-3 pt-3.5 shrink-0 flex items-center gap-1.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
-                      className={cn(
-                        'p-2 rounded-lg transition-all',
-                        form.interactiveMode
-                          ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shadow-[0_0_12px_rgba(168,85,247,0.15)]'
-                          : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted border border-transparent',
-                      )}
-                    >
-                      <Sparkles
-                        className={cn(
-                          'size-4 transition-transform duration-500',
-                          form.interactiveMode && 'rotate-[15deg] scale-110',
-                        )}
-                      />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" align="center" className="text-[11px]">
-                    <div className="flex items-center gap-1.5">
-                      <Atom className="size-3 text-purple-500" />
-                      <span>
-                        {form.interactiveMode ? 'AI Interaction ON' : 'AI Interaction OFF'}
-                      </span>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="w-px h-4 bg-border/40 mx-0.5" />
+              <div className="pr-3 pt-3.5 shrink-0">
                 <AgentBar />
               </div>
             </div>
@@ -617,6 +588,37 @@ function HomePage() {
                   onPdfError={setError}
                 />
               </div>
+
+              {/* Interactive mode toggle */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
+                    className={cn(
+                      'relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border shrink-0 h-8',
+                      form.interactiveMode
+                        ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)] dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                        : 'border-cyan-300/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20',
+                    )}
+                  >
+                    {form.interactiveMode && (
+                      <span
+                        className="absolute inset-[-4px] rounded-full border border-cyan-400/40 dark:border-cyan-400/25"
+                        style={{
+                          animation: 'interactive-mode-breathe 2s ease-in-out infinite',
+                        }}
+                      />
+                    )}
+                    <Atom className="size-3.5 relative z-10 animate-[spin_3s_linear_infinite]" />
+                    <span className="relative z-10">{t('toolbar.interactiveModeLabel')}</span>
+                  </motion.button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {t('toolbar.interactiveModeHint')}
+                </TooltipContent>
+              </Tooltip>
 
               {/* Voice input */}
               <SpeechButton
