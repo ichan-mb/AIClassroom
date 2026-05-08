@@ -60,14 +60,17 @@ export function GenerationToolbar({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Check if the selected web search provider has a valid config (API key or server-configured)
-  const webSearchProvider = WEB_SEARCH_PROVIDERS[webSearchProviderId];
-  const webSearchConfig = webSearchProvidersConfig[webSearchProviderId];
-  const webSearchAvailable = webSearchProvider
-    ? !webSearchProvider.requiresApiKey ||
-      !!webSearchConfig?.apiKey ||
-      !!webSearchConfig?.isServerConfigured
-    : false;
+  // Check if any web search provider has a valid config (API key or server-configured)
+  // This allows the popover to open so users can switch to a working provider.
+  const webSearchAvailable = Object.values(WEB_SEARCH_PROVIDERS).some((p) => {
+    const cfg = webSearchProvidersConfig[p.id];
+    return !p.requiresApiKey || !!cfg?.apiKey || !!cfg?.isServerConfigured;
+  });
+
+  const currentWebSearchReady =
+    !WEB_SEARCH_PROVIDERS[webSearchProviderId]?.requiresApiKey ||
+    !!webSearchProvidersConfig[webSearchProviderId]?.apiKey ||
+    !!webSearchProvidersConfig[webSearchProviderId]?.isServerConfigured;
 
   // Configured LLM providers (only those with valid credentials + models + endpoint)
   const configuredProviders = providersConfig
@@ -281,12 +284,14 @@ export function GenerationToolbar({
           <PopoverContent align="start" className="w-64 p-3 space-y-3">
             {/* Toggle */}
             <button
-              onClick={() => onWebSearchChange(!webSearch)}
+              onClick={() => (webSearch || currentWebSearchReady) && onWebSearchChange(!webSearch)}
+              disabled={!currentWebSearchReady && !webSearch}
               className={cn(
                 'w-full flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all',
                 webSearch
                   ? 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800'
                   : 'border-border hover:bg-muted/50',
+                !currentWebSearchReady && !webSearch && 'opacity-50 cursor-not-allowed',
               )}
             >
               <Globe2

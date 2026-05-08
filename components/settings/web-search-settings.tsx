@@ -11,9 +11,10 @@ import { Eye, EyeOff } from 'lucide-react';
 
 interface WebSearchSettingsProps {
   selectedProviderId: WebSearchProviderId;
+  onSave?: () => void;
 }
 
-export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps) {
+export function WebSearchSettings({ selectedProviderId, onSave }: WebSearchSettingsProps) {
   const { t } = useI18n();
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -62,6 +63,7 @@ export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps
                       apiKey: e.target.value,
                     })
                   }
+                  onBlur={onSave}
                   className="font-mono text-sm pr-10"
                 />
                 <button
@@ -90,6 +92,7 @@ export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps
                     baseUrl: e.target.value,
                   })
                 }
+                onBlur={onSave}
                 className="text-sm"
               />
             </div>
@@ -102,7 +105,8 @@ export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps
               provider.defaultBaseUrl ||
               '';
             if (!effectiveBaseUrl) return null;
-            const fullUrl = effectiveBaseUrl + '/search';
+            const path = selectedProviderId === 'ollama' ? '/api/web_search' : '/search';
+            const fullUrl = effectiveBaseUrl.replace(/\/$/, '') + path;
             return (
               <p className="text-xs text-muted-foreground break-all">
                 {t('settings.requestUrl')}: {fullUrl}

@@ -6,7 +6,7 @@
     "loading": "Memuat..."
   },
   "home": {
-    "slogan": "Pembelajaran Generatif di Ruang Kelas Interaktif Multi-Agen",
+    "slogan": "Pembelajaran Generatif Multi-Agen di Ruang Kelas Interaktif",
     "greetingWithName": "Halo, {{name}}"
   },
   "toolbar": {
@@ -126,7 +126,7 @@
     "stopListening": "Berhenti merekam"
   },
   "stage": {
-    "currentScene": "Adegan Saat Ini",
+    "currentScene": "Tayangan Saat Ini",
     "generating": "Menghasilkan...",
     "paused": "Dijeda",
     "generationFailed": "Pembuatan gagal",
@@ -878,12 +878,12 @@
     "clearCacheSuccess": "Cache dibersihkan, halaman akan disegarkan sebentar lagi",
     "clearCacheFailed": "Gagal membersihkan cache, silakan coba lagi",
     "webSearchSettings": "Pencarian Web",
-    "webSearchApiKey": "Kunci API Tavily",
-    "webSearchApiKeyPlaceholder": "Masukkan Kunci API Tavily Anda",
+    "webSearchApiKey": "Kunci API Pencarian",
+    "webSearchApiKeyPlaceholder": "Masukkan Kunci API",
     "webSearchApiKeyPlaceholderServer": "Kunci server dikonfigurasi, opsional untuk ditimpa",
-    "webSearchApiKeyHint": "Dapatkan kunci API dari tavily.com untuk pencarian web",
-    "webSearchBaseUrl": "URL Dasar",
-    "webSearchServerConfigured": "Kunci API Tavily sisi server telah dikonfigurasi",
+    "webSearchApiKeyHint": "Masukkan kunci API untuk penyedia pencarian Anda (misalnya Tavily atau Ollama)",
+    "webSearchBaseUrl": "URL Dasar API Pencarian",
+    "webSearchServerConfigured": "Kunci API pencarian sisi server telah dikonfigurasi",
     "optional": "Opsional"
   },
   "profile": {

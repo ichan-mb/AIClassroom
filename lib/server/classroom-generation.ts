@@ -16,11 +16,13 @@ import type { AgentInfo } from '@/lib/generation/pipeline-types';
 import { getDefaultAgents } from '@/lib/orchestration/registry/store';
 import { createLogger } from '@/lib/logger';
 import { isProviderKeyRequired } from '@/lib/ai/providers';
-import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
+import { resolveWebSearchApiKey, resolveWebSearchBaseUrl } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { buildSearchQuery } from '@/lib/server/search-query-builder';
 import { searchWithTavily, formatSearchResultsAsContext } from '@/lib/web-search/tavily';
+import { searchWithOllama } from '@/lib/web-search/ollama';
 import { persistClassroom } from '@/lib/server/classroom-storage';
+import prisma from '@/lib/prisma/client';
 import {
   generateMediaForClassroom,
   replaceMediaPlaceholders,
@@ -235,31 +237,43 @@ export async function generateClassroom(
   // Web search (optional, graceful degradation)
   let researchContext: string | undefined;
   if (input.enableWebSearch) {
-    const tavilyKey = resolveWebSearchApiKey();
-    if (tavilyKey) {
-      try {
+    try {
+      // 1. Resolve selected provider from DB
+      const settings = await prisma.systemSettings.findUnique({ where: { id: 'global' } });
+      const payload = settings?.payload as any;
+      const providerId = payload?.webSearchProviderId || 'tavily';
+
+      const apiKey = resolveWebSearchApiKey(providerId);
+
+      if (apiKey) {
         const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
 
-        log.info('Running web search for classroom generation', {
+        log.info(`Running web search (${providerId}) for classroom generation`, {
           hasPdfContext: searchQuery.hasPdfContext,
           rawRequirementLength: searchQuery.rawRequirementLength,
           rewriteAttempted: searchQuery.rewriteAttempted,
           finalQueryLength: searchQuery.finalQueryLength,
         });
 
-        const searchResult = await searchWithTavily({
-          query: searchQuery.query,
-          apiKey: tavilyKey,
-        });
+        let searchResult;
+        if (providerId === 'ollama') {
+          const baseUrl = resolveWebSearchBaseUrl(providerId);
+          searchResult = await searchWithOllama({ query: searchQuery.query, apiKey, baseUrl });
+        } else {
+          searchResult = await searchWithTavily({ query: searchQuery.query, apiKey });
+        }
+
         researchContext = formatSearchResultsAsContext(searchResult);
         if (researchContext) {
           log.info(`Web search returned ${searchResult.sources.length} sources`);
         }
-      } catch (e) {
-        log.warn('Web search failed, continuing without search context:', e);
+      } else {
+        log.warn(
+          `enableWebSearch is true but no ${providerId} API key configured, skipping web search`,
+        );
       }
-    } else {
-      log.warn('enableWebSearch is true but no Tavily API key configured, skipping web search');
+    } catch (e) {
+      log.warn('Web search failed, continuing without search context:', e);
     }
   }
 

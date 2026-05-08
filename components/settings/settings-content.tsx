@@ -769,7 +769,10 @@ export function SettingsContent({
 
           {activeSection === 'pdf' && <PDFSettings selectedProviderId={selectedPdfProviderId} />}
           {activeSection === 'web-search' && (
-            <WebSearchSettings selectedProviderId={selectedWebSearchProviderId} />
+            <WebSearchSettings
+              selectedProviderId={selectedWebSearchProviderId}
+              onSave={handleProviderConfigSave}
+            />
           )}
           {activeSection === 'image' && (
             <ImageSettings selectedProviderId={selectedImageProviderId} />

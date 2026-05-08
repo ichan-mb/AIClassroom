@@ -14,6 +14,12 @@ export const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderId, WebSearchProvider
     requiresApiKey: true,
     defaultBaseUrl: 'https://api.tavily.com',
   },
+  ollama: {
+    id: 'ollama',
+    name: 'Ollama',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://ollama.com',
+  },
 };
 
 /**

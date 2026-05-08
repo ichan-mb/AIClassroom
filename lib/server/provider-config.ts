@@ -92,6 +92,7 @@ const VIDEO_ENV_MAP: Record<string, string> = {
 
 const WEB_SEARCH_ENV_MAP: Record<string, string> = {
   TAVILY: 'tavily',
+  OLLAMA: 'ollama',
 };
 
 // ---------------------------------------------------------------------------
@@ -400,7 +401,7 @@ export function resolveVideoBaseUrl(
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Web Search (Tavily)
+// Public API — Web Search
 // ---------------------------------------------------------------------------
 
 /** Returns server-configured web search providers (no apiKeys exposed) */
@@ -414,10 +415,22 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
   return result;
 }
 
-/** Resolve Tavily API key: client key > server key > TAVILY_API_KEY env > empty */
-export function resolveWebSearchApiKey(clientKey?: string): string {
+/** Resolve web search API key: client key > server key > provider-specific env > empty */
+export function resolveWebSearchApiKey(providerId: string, clientKey?: string): string {
   if (clientKey) return clientKey;
-  const serverKey = getConfig().webSearch.tavily?.apiKey;
+  const serverKey = getConfig().webSearch[providerId]?.apiKey;
   if (serverKey) return serverKey;
-  return process.env.TAVILY_API_KEY || '';
+
+  if (providerId === 'tavily') return process.env.TAVILY_API_KEY || '';
+  if (providerId === 'ollama') return process.env.OLLAMA_API_KEY || '';
+  return '';
+}
+
+/** Resolve web search base URL: client > server > undefined */
+export function resolveWebSearchBaseUrl(
+  providerId: string,
+  clientBaseUrl?: string,
+): string | undefined {
+  if (clientBaseUrl) return clientBaseUrl;
+  return getConfig().webSearch[providerId]?.baseUrl;
 }

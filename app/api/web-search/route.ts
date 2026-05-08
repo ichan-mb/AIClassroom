@@ -8,7 +8,9 @@
 import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
 import { searchWithTavily, formatSearchResultsAsContext } from '@/lib/web-search/tavily';
-import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
+import { searchWithOllama } from '@/lib/web-search/ollama';
+import { resolveWebSearchApiKey, resolveWebSearchBaseUrl } from '@/lib/server/provider-config';
+import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
@@ -28,10 +30,12 @@ export async function POST(req: NextRequest) {
       query: requestQuery,
       pdfText,
       apiKey: clientApiKey,
+      providerId = 'tavily',
     } = body as {
       query?: string;
       pdfText?: string;
       apiKey?: string;
+      providerId?: WebSearchProviderId;
     };
     query = requestQuery;
 
@@ -39,12 +43,12 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'query is required');
     }
 
-    const apiKey = resolveWebSearchApiKey(clientApiKey);
+    const apiKey = resolveWebSearchApiKey(providerId, clientApiKey);
     if (!apiKey) {
       return apiError(
         'MISSING_API_KEY',
         400,
-        'Tavily API key is not configured. Set it in Settings → Web Search or set TAVILY_API_KEY env var.',
+        `${providerId} API key is not configured. Set it in Settings → Web Search.`,
       );
     }
 
@@ -81,7 +85,13 @@ export async function POST(req: NextRequest) {
       finalQueryLength: searchQuery.finalQueryLength,
     });
 
-    const result = await searchWithTavily({ query: searchQuery.query, apiKey });
+    let result;
+    if (providerId === 'ollama') {
+      const baseUrl = resolveWebSearchBaseUrl(providerId);
+      result = await searchWithOllama({ query: searchQuery.query, apiKey, baseUrl });
+    } else {
+      result = await searchWithTavily({ query: searchQuery.query, apiKey });
+    }
     const context = formatSearchResultsAsContext(result);
 
     return apiSuccess({

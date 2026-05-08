@@ -376,8 +376,9 @@ const getDefaultVideoConfig = () => ({
 const getDefaultWebSearchConfig = () => ({
   webSearchProviderId: 'tavily' as WebSearchProviderId,
   webSearchProvidersConfig: {
-    tavily: { apiKey: '', baseUrl: '', enabled: true },
-  } as Record<WebSearchProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
+    tavily: { apiKey: '', baseUrl: undefined, enabled: true },
+    ollama: { apiKey: '', baseUrl: undefined, enabled: true },
+  } as SettingsState['webSearchProvidersConfig'],
 });
 
 /**
@@ -1133,13 +1134,15 @@ export const useSettingsStore = create<SettingsState>()(
               if (data.webSearch) {
                 for (const [pid, info] of Object.entries(data.webSearch)) {
                   const key = pid as WebSearchProviderId;
-                  if (newWebSearchConfig[key]) {
-                    newWebSearchConfig[key] = {
-                      ...newWebSearchConfig[key],
-                      isServerConfigured: true,
-                      serverBaseUrl: info.baseUrl,
-                    };
-                  }
+                  newWebSearchConfig[key] = {
+                    ...(newWebSearchConfig[key] || {
+                      apiKey: '',
+                      baseUrl: undefined,
+                      enabled: true,
+                    }),
+                    isServerConfigured: true,
+                    serverBaseUrl: info.baseUrl,
+                  };
                 }
               }
 
@@ -1162,6 +1165,7 @@ export const useSettingsStore = create<SettingsState>()(
               const pdfFallback = buildFallback<PDFProviderId>(newPDFConfig);
               const imageFallback = buildFallback<ImageProviderId>(newImageConfig);
               const videoFallback = buildFallback<VideoProviderId>(newVideoConfig);
+              const webSearchFallback = buildFallback<WebSearchProviderId>(newWebSearchConfig);
 
               const validLLMProvider = validateProvider(
                 state.providerId,
@@ -1195,6 +1199,12 @@ export const useSettingsStore = create<SettingsState>()(
                 state.videoProviderId,
                 newVideoConfig,
                 videoFallback,
+              );
+              const validWebSearchProvider = validateProvider(
+                state.webSearchProviderId,
+                newWebSearchConfig,
+                webSearchFallback,
+                'tavily' as WebSearchProviderId,
               );
 
               // Auto-recover: when provider is empty but server has available ones
@@ -1255,6 +1265,7 @@ export const useSettingsStore = create<SettingsState>()(
               let autoVideoModel: string | undefined;
               let autoImageEnabled: boolean | undefined;
               let autoVideoEnabled: boolean | undefined;
+              let autoWebSearchProvider: WebSearchProviderId | undefined;
 
               if (!state.autoConfigApplied) {
                 // PDF: unpdf → mineru-cloud or mineru if server has it
@@ -1312,6 +1323,17 @@ export const useSettingsStore = create<SettingsState>()(
                 }
                 if (serverVideoIds.length > 0 && !state.videoGenerationEnabled) {
                   autoVideoEnabled = true;
+                }
+
+                // Web Search: select first server provider if current is not server-configured
+                const serverWebSearchIds = Object.keys(
+                  data.webSearch || {},
+                ) as WebSearchProviderId[];
+                if (
+                  serverWebSearchIds.length > 0 &&
+                  !newWebSearchConfig[state.webSearchProviderId]?.isServerConfigured
+                ) {
+                  autoWebSearchProvider = serverWebSearchIds[0];
                 }
               }
 
@@ -1371,6 +1393,9 @@ export const useSettingsStore = create<SettingsState>()(
                 ...(validVideoModel !== state.videoModelId && {
                   videoModelId: validVideoModel,
                 }),
+                ...(validWebSearchProvider !== state.webSearchProviderId && {
+                  webSearchProviderId: validWebSearchProvider as WebSearchProviderId,
+                }),
                 ...(shouldDisableImage && { imageGenerationEnabled: false }),
                 ...(shouldDisableVideo && { videoGenerationEnabled: false }),
                 // First-run auto-select overrides validation (autoConfigApplied guard).
@@ -1390,6 +1415,8 @@ export const useSettingsStore = create<SettingsState>()(
                   videoProviderId: autoVideoProvider,
                 }),
                 ...(autoVideoModel && { videoModelId: autoVideoModel }),
+                ...(autoWebSearchProvider && { webSearchProviderId: autoWebSearchProvider }),
+                ...(autoImageEnabled && { imageGenerationEnabled: true }),
                 ...(autoImageEnabled !== undefined && {
                   imageGenerationEnabled: autoImageEnabled,
                 }),
@@ -1538,9 +1565,14 @@ export const useSettingsStore = create<SettingsState>()(
           state.webSearchProvidersConfig = {
             tavily: {
               apiKey: oldApiKey,
-              baseUrl: '',
+              baseUrl: undefined,
               enabled: true,
               isServerConfigured: oldIsServerConfigured,
+            },
+            ollama: {
+              apiKey: '',
+              baseUrl: undefined,
+              enabled: true,
             },
           } as SettingsState['webSearchProvidersConfig'];
           delete stateRecord.webSearchApiKey;
