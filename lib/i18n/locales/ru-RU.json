@@ -133,8 +133,24 @@
     "confirmSwitchTitle": "Переключить сцену",
     "confirmSwitchMessage": "В данный момент идёт обсуждение. Переключение сцены завершит текущую тему. Продолжить?",
     "generatingNextPage": "Сцена генерируется, пожалуйста подождите...",
+    "courseComplete": "Курс завершён",
     "fullscreen": "Полный экран",
     "exitFullscreen": "Свернуть"
+  },
+  "classroomComplete": {
+    "title": "Курс завершён",
+    "trailLabels": {
+      "slide": "страниц",
+      "quiz": "тестов",
+      "interactive": "интерактивов",
+      "pbl": "проектов"
+    },
+    "quizScoreLabel": "Верно {{correct}} из {{total}}",
+    "encouragement": {
+      "high": "Отлично — вы справились!",
+      "mid": "Хорошая работа — продолжайте.",
+      "low": "Неплохое начало — повторите ещё раз."
+    }
   },
   "whiteboard": {
     "title": "Интерактивная доска",
@@ -280,7 +296,11 @@
     "delete": "Удалить",
     "rename": "Переименовать",
     "renamePlaceholder": "Введите название класса",
-    "renameFailed": "Не удалось переименовать класс"
+    "renameFailed": "Не удалось переименовать класс",
+    "searchPlaceholder": "Поиск курсов...",
+    "searchAriaLabel": "Поиск курсов",
+    "clearSearch": "Очистить",
+    "searchEmpty": "Курсы не найдены"
   },
   "upload": {
     "pdfSizeLimit": "Поддержка PDF до 50 МБ",
